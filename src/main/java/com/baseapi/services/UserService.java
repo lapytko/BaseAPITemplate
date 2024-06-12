@@ -56,16 +56,6 @@ public class UserService implements UserDetailsService {
         return userRepository.save(user);
     }
 
-    public User createUser(String username, String password) throws IllegalAccessException {
-        User user = new User();
-        user.setUsername(username);
-        user.setPassword(passwordEncoder.encode(password));
-
-        encryptionService.encrypt(user);
-
-        return userRepository.save(user);
-    }
-
     public User findByUsername(String username) {
         User user = userRepository.findByUsername(username);
         if (user != null) {

@@ -65,7 +65,7 @@ public class LoadDatabase {
                 PersonalData personalData = new PersonalData("admin", null, "test@test.com",null);
                 // personalData = personalDataService.createPersonalData(personalData); // Сохраните PersonalData сначала
 
-                User user= new User("admin", "admin", personalData, authorities);
+                User user= new User("admin", "admin", personalData, authorities, true, true, false );
 
                 user.setCreated(LocalDateTime.now());
                 User registeredUser = userService.createUser(user); // Теперь сохраните User

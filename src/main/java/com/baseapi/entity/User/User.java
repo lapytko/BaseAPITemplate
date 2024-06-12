@@ -35,6 +35,12 @@ public class User extends BaseEntity implements UserDetails {
     @ManyToMany(fetch = FetchType.EAGER)
     private Set<Authority> authorities;
 
+    private boolean enabled = true;
+
+    private boolean accountNonExpired = true;
+
+    private boolean locked = false;
+
 
     // Реализация методов интерфейса UserDetails
 
@@ -45,14 +51,12 @@ public class User extends BaseEntity implements UserDetails {
 
     @Override
     public boolean isAccountNonExpired() {
-        // Верните здесь статус аккаунта пользователя
-        return true;
+        return this.accountNonExpired;
     }
 
     @Override
     public boolean isAccountNonLocked() {
-        // Верните здесь статус блокировки аккаунта пользователя
-        return true;
+        return !this.locked;
     }
 
     @Override
@@ -63,8 +67,7 @@ public class User extends BaseEntity implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        // Верните здесь статус активации аккаунта пользователя
-        return true;
+        return this.enabled;
     }
 
 }

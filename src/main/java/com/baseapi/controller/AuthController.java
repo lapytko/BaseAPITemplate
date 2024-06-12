@@ -35,20 +35,6 @@ public class AuthController {
     @Autowired
     private AuthenticationManager authenticationManager;
 
-
-    @PostMapping("/register")
-    public ResponseEntity<ApiResponse<User>> register(@Valid @RequestBody User user) {
-        try {
-            User registeredUser = userService.createUser(user.getUsername(), user.getPassword());
-            return ResponseEntity.ok(new ApiResponse<>(registeredUser, null, true));
-        } catch (DuplicateUsernameException e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(null, "Username already exists", false));
-        } catch (Exception e) {
-            log.error("Error during registration", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(null, "Registration failed", false));
-        }
-    }
-
     @PostMapping("/token")
     public ResponseEntity<?> generateToken(@RequestBody LoginRequest loginRequest) {
         String jwt;
@@ -66,7 +52,7 @@ public class AuthController {
             return ResponseEntity.ok(new ApiResponse<>(new JwtAuthenticationResponse(jwt), null, true));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new ApiResponse<>(null, "Invalid username or password", false));
+                    .body(new ApiResponse<>(null, e.getMessage(), false));
         }
 
     }

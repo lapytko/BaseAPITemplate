@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.baseapi.controller.base.ApiResponse;
@@ -24,6 +25,7 @@ public class UserController {
     @Autowired
     private UserService userService;
 
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     @PostMapping("/save")
     public ResponseEntity<ApiResponse<User>> saveUser(@RequestBody User user) throws IllegalAccessException {
         ApiResponse<User> response = new ApiResponse<>();
@@ -49,6 +51,7 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/{username}")
     public ResponseEntity<ApiResponse<User>> getUser(@PathVariable String username) {
         ApiResponse<User> response = new ApiResponse<>();

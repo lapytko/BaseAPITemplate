@@ -5,6 +5,7 @@ import java.security.Key;
 import java.util.Date;
 
 import com.baseapi.entity.User.User;
+import com.baseapi.exceptions.AuthorizationException;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,15 @@ public class JwtService {
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
 
         User userPrincipal = authenticatedUser.getUser();
+
+        if (userPrincipal.isLocked()) {
+            throw new AuthorizationException("User locked");
+        }
+
+
+        if (!userPrincipal.isEnabled()) {
+            throw new AuthorizationException("User is not enabled");
+        }
 
         return Jwts.builder()
                 .setSubject((userPrincipal.getUsername()))
