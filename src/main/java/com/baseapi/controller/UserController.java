@@ -1,6 +1,7 @@
 package com.baseapi.controller;
 
 import com.baseapi.entity.User.Authority;
+import com.baseapi.enums.Role;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -33,7 +34,7 @@ public class UserController {
                 existingUser.setUsername(user.getUsername());
                 existingUser.setPassword(user.getPassword());
                 Set<Authority> authorities = user.getAuthorities().stream()
-                        .map(authority -> new Authority(authority.getAuthority())) // replace with appropriate constructor or method
+                        .map(authority -> new Authority(Role.valueOf(authority.getAuthority()))) // Используем Role.valueOf() для преобразования строки в Role
                         .collect(Collectors.toSet());
                 existingUser.setAuthorities(authorities);
                 existingUser.setPersonalData(user.getPersonalData());

@@ -1,12 +1,10 @@
 package com.baseapi.entity.User;
 
+import com.baseapi.enums.Role;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
-import jakarta.persistence.Column;
-import jakarta.persistence.Id;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -19,11 +17,12 @@ import lombok.Setter;
 public class Authority implements GrantedAuthority {
 
     @Id
+    @Enumerated(EnumType.STRING)
     @Column(name = "authority_name", nullable = false)
-    private String authority;
+    private Role authority;
 
     @Override
     public String getAuthority() {
-        return authority;
+        return authority.name();
     }
 }
