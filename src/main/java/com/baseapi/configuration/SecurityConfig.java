@@ -1,7 +1,9 @@
 package com.baseapi.configuration;
 
+import com.baseapi.security.JwtAuthenticationFilter;
 import com.baseapi.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -17,6 +19,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.DefaultSecurityFilterChain;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import java.util.Arrays;
 
@@ -26,11 +29,21 @@ import java.util.Arrays;
 @EnableWebSecurity
 public class SecurityConfig {//extends SecurityConfigurerAdapter<DefaultSecurityFilterChain, HttpSecurity> {
 
+    private ApplicationContext context;
+
     @Autowired
-    private UserService userDetailsService;
+    private final UserService userDetailsService;
 
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
+
+
+    @Autowired
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    public SecurityConfig(UserService userDetailsService) {
+        this.userDetailsService = userDetailsService;
+    }
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
@@ -47,7 +60,8 @@ public class SecurityConfig {//extends SecurityConfigurerAdapter<DefaultSecurity
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.csrf(csrf -> csrf.disable())
+        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth ->
                         auth.requestMatchers("/swagger-ui.html").permitAll()
                                 .requestMatchers("v3/api-docs").permitAll()

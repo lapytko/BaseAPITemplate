@@ -7,11 +7,13 @@ import com.baseapi.repository.AuthorityRepository;
 import com.baseapi.repository.UserRepository;
 import com.baseapi.services.PersonalDataService;
 import com.baseapi.services.UserService;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -31,6 +33,7 @@ public class LoadDatabase {
     private PersonalDataService personalDataService;
 
     @Bean
+    @Transactional
     CommandLineRunner initDatabase() {
         return args -> {
             if (authorityRepository.count() == 0) { // only insert if there are no records
@@ -45,8 +48,13 @@ public class LoadDatabase {
                 authorities.add(adminAuthority);
 
                 PersonalData personalData = new PersonalData("admin", null, "test@test.com",null);
+               // personalData = personalDataService.createPersonalData(personalData); // Сохраните PersonalData сначала
+
                 User user= new User("admin", "admin", personalData, authorities);
-                User registeredUser = userService.createUser(user);
+
+                user.setCreated(LocalDateTime.now());
+                User registeredUser = userService.createUser(user); // Теперь сохраните User
+
 
             }
         };
