@@ -1,9 +1,7 @@
 package com.baseapi.entity.User;
 
 import com.baseapi.entity.BaseEntity;
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import jakarta.persistence.Column;
@@ -16,6 +14,8 @@ import java.time.LocalDateTime;
 @Setter
 @Entity
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Table(name = "login_history")
 public class LoginHistory extends BaseEntity {
 

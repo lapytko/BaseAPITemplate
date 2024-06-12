@@ -6,9 +6,12 @@ import java.util.Date;
 
 import com.baseapi.entity.User.User;
 import com.baseapi.exceptions.AuthorizationException;
+import com.baseapi.repository.LoginHistoryRepository;
+import com.baseapi.services.LoginHistoryService;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -30,6 +33,14 @@ public class JwtService {
     @Value("${jwt.expiration}")
     private int jwtExpirationMs;
 
+    private final LoginHistoryService loginHistoryService;
+
+    @Autowired
+    public JwtService(LoginHistoryService loginHistoryService) {
+        this.loginHistoryService = loginHistoryService;
+
+    }
+
     public String generateToken(Authentication authentication) {
 
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
@@ -37,13 +48,18 @@ public class JwtService {
         User userPrincipal = authenticatedUser.getUser();
 
         if (userPrincipal.isLocked()) {
+            loginHistoryService.save(userPrincipal, false);
             throw new AuthorizationException("User locked");
+
         }
 
 
         if (!userPrincipal.isEnabled()) {
+            loginHistoryService.save(userPrincipal, false);
             throw new AuthorizationException("User is not enabled");
         }
+
+        loginHistoryService.save(userPrincipal, true);
 
         return Jwts.builder()
                 .setSubject((userPrincipal.getUsername()))

@@ -1,8 +1,10 @@
 package com.baseapi.services;
 
 import com.baseapi.entity.User.Authority;
+import com.baseapi.entity.User.LoginHistory;
 import com.baseapi.entity.User.PersonalData;
 import com.baseapi.entity.User.User;
+import com.baseapi.repository.LoginHistoryRepository;
 import com.baseapi.repository.UserRepository;
 import com.baseapi.security.AuthenticatedUser;
 import com.baseapi.security.JwtService;
@@ -28,6 +30,7 @@ import java.util.stream.Collectors;
 public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
+
     private final BCryptPasswordEncoder passwordEncoder;
     private final EncryptionService encryptionService;
     private final JwtService jwtService;
@@ -61,7 +64,6 @@ public class UserService implements UserDetailsService {
         if (user != null) {
             try {
                 encryptionService.decrypt(user);
-                encryptionService.decrypt(user.getPersonalData());
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
             }
