@@ -1,13 +1,21 @@
 package com.baseapi.security;
 
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.security.Key;
+import java.util.Base64;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.baseapi.entity.User.User;
 import com.baseapi.exceptions.AuthorizationException;
 import com.baseapi.repository.LoginHistoryRepository;
 import com.baseapi.services.LoginHistoryService;
+import com.baseapi.utils.encryption.StaticEncryptor;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.xml.bind.DatatypeConverter;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +41,12 @@ public class JwtService {
     @Value("${jwt.expiration}")
     private int jwtExpirationMs;
 
+    @Value("${jwt.issuer}")
+    private String jwtIssuer;
+
+    @Value("${jwt_encryption_key}")
+    private String jwtEncryptionKey;
+
     private final LoginHistoryService loginHistoryService;
 
     @Autowired
@@ -41,7 +55,7 @@ public class JwtService {
 
     }
 
-    public String generateToken(Authentication authentication) {
+    public String generateToken(Authentication authentication) throws Exception {
 
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
 
@@ -61,10 +75,15 @@ public class JwtService {
 
         loginHistoryService.save(userPrincipal, true);
 
+        Date issueDate = new Date();
+
+        String issuer = generateIssuer(userPrincipal.getUsername(), issueDate);
+
         return Jwts.builder()
                 .setSubject((userPrincipal.getUsername()))
-                .setIssuedAt(new Date())
-                .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
+                .setIssuer(issuer)
+                .setIssuedAt(issueDate)
+                .setExpiration(new Date(issueDate.getTime() + jwtExpirationMs))
                 .signWith(key(), SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -74,24 +93,55 @@ public class JwtService {
     }
 
     public String getUsernameFromToken(String token) {
-        return Jwts.parserBuilder().setSigningKey(key()).build()
+       return Jwts.parserBuilder().setSigningKey(key()).build()
                 .parseClaimsJws(token).getBody().getSubject();
     }
 
     public boolean validateToken(String authToken) {
         try {
-            Jwts.parserBuilder().setSigningKey(key()).build().parse(authToken);
+            Claims claims = Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(authToken).getBody();
+            String encryptedIssuer = claims.getIssuer();
+
+            String issuerDataJson = new String(StaticEncryptor.decryptAES(Base64.getDecoder().decode(encryptedIssuer), jwtEncryptionKey), StandardCharsets.UTF_8);
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            Map<String, Object> issuerData = objectMapper.readValue(issuerDataJson, Map.class);
+
+            // Проверьте issuer
+            if (!jwtIssuer.equals(issuerData.get("issuer"))) {
+                log.error("Invalid JWT issuer");
+                return false;
+            }
+
             return true;
         } catch (MalformedJwtException e) {
             log.error("Invalid JWT token: {}", e.getMessage());
-        } catch (InvalidParameterException e) {
+        } catch (ExpiredJwtException e) {
             log.error("JWT token is expired: {}", e.getMessage());
         } catch (UnsupportedJwtException e) {
             log.error("JWT token is unsupported: {}", e.getMessage());
         } catch (IllegalArgumentException e) {
             log.error("JWT claims string is empty: {}", e.getMessage());
+        } catch (Exception e) {
+            log.error("Error validating JWT token: {}", e.getMessage());
         }
 
         return false;
+    }
+
+
+    private String generateIssuer(String username, Date issueDate) throws Exception {
+
+        Map<String, Object> issuerData = new HashMap<>();
+        issuerData.put("issuer", jwtIssuer);
+        issuerData.put("username", username);
+        issuerData.put("issuedAt", issueDate);
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        String issuerDataJson = objectMapper.writeValueAsString(issuerData);
+
+        String encryptedIssuer = Base64.getEncoder().encodeToString(StaticEncryptor.encryptAES(issuerDataJson.getBytes(StandardCharsets.UTF_8), jwtEncryptionKey));
+
+        return encryptedIssuer;
     }
 }
