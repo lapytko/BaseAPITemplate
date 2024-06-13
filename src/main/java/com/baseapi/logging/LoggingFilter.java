@@ -1,25 +1,36 @@
 package com.baseapi.logging;
 
 import com.baseapi.security.JwtService;
-
+import com.baseapi.utils.CachingRequestBodyWrapper;
+import com.baseapi.utils.CustomResponseWrapper;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.Map;
 
+
+@Order(value = Ordered.HIGHEST_PRECEDENCE)
+@WebFilter(filterName = "RequestCachingFilter", urlPatterns = "/*")
 @Component
+@Slf4j
 public class LoggingFilter extends OncePerRequestFilter {
 
     private final MongoClient mongoClient;
@@ -33,8 +44,19 @@ public class LoggingFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        ContentCachingRequestWrapper wrappedRequest = new ContentCachingRequestWrapper(request);
+        CachingRequestBodyWrapper wrappedRequest = new CachingRequestBodyWrapper(request);
         ContentCachingResponseWrapper wrappedResponse = new ContentCachingResponseWrapper(response);
+
+        String requestBody;
+
+        try {
+            requestBody = new String(wrappedRequest.getBody());
+        }
+        catch (Exception e) {
+            requestBody = "Request body is empty";
+            log.error(e.getMessage());
+        }
+
 
         filterChain.doFilter(wrappedRequest, wrappedResponse);
 
@@ -45,8 +67,7 @@ public class LoggingFilter extends OncePerRequestFilter {
 
         if (uri.contains("swagger")) {
             collection = database.getCollection("swagger");
-        }
-        else if (uri.contains("v3/api-docs")) {
+        } else if (uri.contains("v3/api-docs")) {
             collection = database.getCollection("openapi");
         } else {
             collection = database.getCollection("requests");
@@ -66,10 +87,17 @@ public class LoggingFilter extends OncePerRequestFilter {
         for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
             params.append(entry.getKey(), String.join(", ", entry.getValue()));
         }
+        int status = wrappedResponse.getStatus();  // Получение кода статуса
+        String responseBody;
 
-        String requestBody = new String(wrappedRequest.getContentAsByteArray());
-        String responseBody = new String(wrappedResponse.getContentAsByteArray());
-
+        try {
+            responseBody = new String(wrappedResponse.getContentAsByteArray());
+            wrappedResponse.copyBodyToResponse();
+        }
+        catch (Exception e) {
+            responseBody = "Response body is empty";
+            log.error(e.getMessage());
+        }
         String username = "anonymous";
         String authHeader = request.getHeader("Authorization");
         try {
@@ -85,6 +113,7 @@ public class LoggingFilter extends OncePerRequestFilter {
 
         Document log = new Document("uri", uri)
                 .append("method", method)
+                .append("status", status)
                 .append("headers", headers)
                 .append("params", params)
                 .append("requestBody", requestBody)
@@ -93,7 +122,5 @@ public class LoggingFilter extends OncePerRequestFilter {
                 .append("timestamp", new Date());
 
         collection.insertOne(log);
-
-        wrappedResponse.copyBodyToResponse();
     }
 }

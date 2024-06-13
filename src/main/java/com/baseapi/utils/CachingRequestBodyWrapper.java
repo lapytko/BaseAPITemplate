@@ -11,45 +11,38 @@ import org.apache.tomcat.util.http.fileupload.IOUtils;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 
-
-//TODO: удалить этот класс если не будет использован
 public class CachingRequestBodyWrapper extends HttpServletRequestWrapper {
     private ByteArrayOutputStream cachedBytes;
 
-    public CachingRequestBodyWrapper(HttpServletRequest request) {
+    public CachingRequestBodyWrapper(HttpServletRequest request) throws IOException {
         super(request);
+        cacheInputStream(request.getInputStream());
     }
 
     @Override
-    public ServletInputStream getInputStream() throws IOException {
-        if (cachedBytes == null)
-            cacheInputStream();
-
+    public ServletInputStream getInputStream() {
         return new CachedServletInputStream();
     }
 
     @Override
-    public BufferedReader getReader() throws IOException {
+    public BufferedReader getReader() {
         return new BufferedReader(new InputStreamReader(getInputStream()));
     }
 
-    private void cacheInputStream() throws IOException {
-        /* Cache the inputstream in order to read it multiple times. */
+    private void cacheInputStream(InputStream inputStream) throws IOException {
         cachedBytes = new ByteArrayOutputStream();
-        IOUtils.copy(super.getInputStream(), cachedBytes);
+        IOUtils.copy(inputStream, cachedBytes);
     }
 
-    /* An inputstream which reads the cached request body */
     public class CachedServletInputStream extends ServletInputStream {
-        private ByteArrayInputStream input;
+        private final ByteArrayInputStream input;
 
         public CachedServletInputStream() {
-            /* create a new input stream from the cached request body */
             input = new ByteArrayInputStream(cachedBytes.toByteArray());
         }
 
         @Override
-        public int read() throws IOException {
+        public int read() {
             return input.read();
         }
 
@@ -65,14 +58,14 @@ public class CachingRequestBodyWrapper extends HttpServletRequestWrapper {
 
         @Override
         public void setReadListener(ReadListener readListener) {
-            // Пустая реализация, так как мы не используем ReadListener
+            throw new UnsupportedOperationException("Not implemented");
         }
     }
 
     public String getBody() {
-        /* Convert the cached bytes to a string */
         return cachedBytes.toString(StandardCharsets.UTF_8);
     }
 }
+
 
 
