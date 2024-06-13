@@ -71,6 +71,18 @@ public class UserService implements UserDetailsService {
         return user;
     }
 
+    public User findById(String id) {
+        User user = userRepository.findById(UUID.fromString(id)).orElse(null);
+        if (user != null) {
+            try {
+                encryptionService.decrypt(user);
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return user;
+    }
+
 
 
     public Authentication getAuthentication(String token) {

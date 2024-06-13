@@ -11,18 +11,16 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ApiResponse<T> {
-    private T data;
-    private String errorMessage;
-    private boolean success;
+public class SaveResponse {
+    private String data;
+    private boolean isNew;
 
 
     @Override
     public String toString() {
         return "ApiResponse{" +
                 "data=" + ReflectionToStringBuilder.toString(data, ToStringStyle.SHORT_PREFIX_STYLE) +
-                ", errorMessage='" + errorMessage + '\'' +
-                ", success=" + success +
+                ", isNew=" + isNew +
                 '}';
     }
 }

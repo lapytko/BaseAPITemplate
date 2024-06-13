@@ -27,4 +27,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("update User u set u.isDeleted = true where u.id = :id and u.isDeleted = false")
     int deleteById(@Param("id") String id);
 
+    @Query("select u from User u where u.username = :id and u.isDeleted = false")
+    User findById(@Param("id") String id);
+
 }
