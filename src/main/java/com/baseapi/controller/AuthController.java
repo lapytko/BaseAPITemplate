@@ -2,6 +2,7 @@ package com.baseapi.controller;
 
 import com.baseapi.Models.Request.LoginRequest;
 import com.baseapi.Models.Response.JwtAuthenticationResponse;
+import com.baseapi.controller.base.ApiRequest;
 import com.baseapi.controller.base.ApiResponse;
 import com.baseapi.entity.User.User;
 import com.baseapi.exceptions.DuplicateUsernameException;
@@ -41,20 +42,22 @@ public class AuthController {
     private AuthenticationManager authenticationManager;
 
     @PostMapping("/token")
-    public ResponseEntity<?> generateToken(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<?> generateToken(@RequestBody ApiRequest<LoginRequest> loginRequest) {
         String jwt;
+
         try {
+            LoginRequest request = loginRequest.getData();
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            loginRequest.getUsername(),
-                            loginRequest.getPassword()
+                            request.getUsername(),
+                            request.getPassword()
                     ));
             jwt = jwtService.generateToken(authentication);
 
-        log.info("User {} logged in", loginRequest.getUsername());
+        log.info("User {} logged in", request.getUsername());
         return ResponseEntity.ok(new ApiResponse<>(new JwtAuthenticationResponse(jwt), null, true));
         } catch (Exception e) {
-            User user = userService.findByUsername(loginRequest.getUsername());
+            User user = userService.findByUsername(loginRequest.getData().getUsername());
             if (user != null) {
                 loginHistoryService.save(user, false);
             }

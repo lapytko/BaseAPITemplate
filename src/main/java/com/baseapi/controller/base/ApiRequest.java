@@ -1,7 +1,5 @@
 package com.baseapi.controller.base;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,18 +11,14 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ApiResponse<T> {
+public class ApiRequest<T> {
     private T data;
-    private String errorMessage;
-    private boolean success;
 
 
     @Override
     public String toString() {
-        return "ApiResponse{" +
+        return "ApiQuest{" +
                 "data=" + ReflectionToStringBuilder.toString(data, ToStringStyle.SHORT_PREFIX_STYLE) +
-                ", errorMessage='" + errorMessage + '\'' +
-                ", success=" + success +
                 '}';
     }
 }
