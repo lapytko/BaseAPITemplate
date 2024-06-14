@@ -43,8 +43,8 @@ public class UserController {
             if (user.getId() != null) {
                 User existingUser = userService.findById(user.getId().toString());
                 if (existingUser != null) {
-                    User updated = updater.update(user, existingUser);
-                    User updatedUser = userService.updateUser(updated);
+
+                    User updatedUser = userService.updateUser(user);
 
                     saveResponse.updated(updatedUser.getId().toString());
                     response.success(saveResponse);
@@ -85,6 +85,24 @@ public class UserController {
             if (user == null) {
                 return ResponseEntity.notFound().build();
             }
+            response.success(user);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.error(e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @GetMapping("encrypt/{id}")
+    public ResponseEntity<ApiResponse<Object>> encryptUser(@PathVariable String id) {
+        ApiResponse<Object> response = new ApiResponse<>();
+        try {
+            User user = userService.findById(id);
+            if (user == null) {
+                return ResponseEntity.notFound().build();
+            }
+            userService.updateUser(user);
             response.success(user);
             return ResponseEntity.ok(response);
         } catch (Exception e) {

@@ -20,7 +20,7 @@ import java.util.Set;
 @Table(name = "users")
 public class User extends BaseEntity implements UserDetails {
 
-    @Column(name = "username", nullable = false, unique = true)
+    @Column(name = "username", nullable = false)
     private String username;
 
     @JsonIgnore
