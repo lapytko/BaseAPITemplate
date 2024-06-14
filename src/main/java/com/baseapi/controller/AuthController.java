@@ -4,6 +4,7 @@ import com.baseapi.Models.Request.LoginRequest;
 import com.baseapi.Models.Response.JwtAuthenticationResponse;
 import com.baseapi.controller.base.ApiRequest;
 import com.baseapi.controller.base.ApiResponse;
+import com.baseapi.dto.auth.LoginDto;
 import com.baseapi.entity.User.User;
 import com.baseapi.exceptions.DuplicateUsernameException;
 import com.baseapi.security.JwtService;
@@ -42,11 +43,12 @@ public class AuthController {
     private AuthenticationManager authenticationManager;
 
     @PostMapping("/token")
-    public ResponseEntity<?> generateToken(@RequestBody ApiRequest<LoginRequest> loginRequest) {
+    public ResponseEntity<ApiResponse<Object>> generateToken(@RequestBody ApiRequest<LoginDto> loginRequest) {
         String jwt;
+        ApiResponse<Object> response = new ApiResponse<>();
 
         try {
-            LoginRequest request = loginRequest.getData();
+            LoginDto request = loginRequest.getData();
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             request.getUsername(),
@@ -54,15 +56,16 @@ public class AuthController {
                     ));
             jwt = jwtService.generateToken(authentication);
 
-        log.info("User {} logged in", request.getUsername());
-        return ResponseEntity.ok(new ApiResponse<>(new JwtAuthenticationResponse(jwt), null, true));
+           response.success(new JwtAuthenticationResponse(jwt));
+        return ResponseEntity.ok(response);
         } catch (Exception e) {
             User user = userService.findByUsername(loginRequest.getData().getUsername());
             if (user != null) {
                 loginHistoryService.save(user, false);
+                response.error(e.getMessage());
             }
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new ApiResponse<>(null, e.getMessage(), false));
+                    .body(response);
         }
 
     }
