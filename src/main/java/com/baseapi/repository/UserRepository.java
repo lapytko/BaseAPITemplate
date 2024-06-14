@@ -6,7 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.Modifying;
@@ -25,9 +25,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Modifying
     @Query("update User u set u.isDeleted = true where u.id = :id and u.isDeleted = false")
-    int deleteById(@Param("id") String id);
+    int setDeleteById(@Param("id") UUID id);
 
-    @Query("select u from User u where u.username = :id and u.isDeleted = false")
-    User findById(@Param("id") String id);
+
+    @Query("select u from User u where u.id = :id and u.isDeleted = false")
+    Optional<User> findById(@Param("id") UUID id);
 
 }

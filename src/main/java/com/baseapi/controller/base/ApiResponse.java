@@ -16,6 +16,21 @@ public class ApiResponse<T> {
     private String errorMessage;
     private boolean success;
 
+    public ApiResponse<T> error(String errorMessage) {
+        this.success = false;
+        this.errorMessage = errorMessage;
+        this.data = null;
+
+        return this;
+    }
+
+    public ApiResponse<T>  success(T data) {
+        this.success = true;
+        this.data = data;
+        this.errorMessage = null;
+
+        return this;
+    }
 
     @Override
     public String toString() {

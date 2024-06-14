@@ -15,6 +15,19 @@ public class SaveResponse {
     private String data;
     private boolean isNew;
 
+    public SaveResponse updated (String data) {
+        this.isNew = false;
+        this.data = data;
+
+        return this;
+    }
+
+    public SaveResponse created (String data) {
+        this.isNew = true;
+        this.data = data;
+
+        return this;
+    }
 
     @Override
     public String toString() {

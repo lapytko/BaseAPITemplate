@@ -1,14 +1,10 @@
 package com.baseapi.services;
 
 import com.baseapi.entity.User.Authority;
-import com.baseapi.entity.User.LoginHistory;
-import com.baseapi.entity.User.PersonalData;
 import com.baseapi.entity.User.User;
-import com.baseapi.repository.LoginHistoryRepository;
 import com.baseapi.repository.UserRepository;
 import com.baseapi.security.AuthenticatedUser;
 import com.baseapi.security.JwtService;
-import com.baseapi.utils.encryption.EncryptionHandler;
 import com.baseapi.utils.encryption.EncryptionService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,8 +15,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -58,6 +54,23 @@ public class UserService implements UserDetailsService {
         encryptionService.encrypt(user);
         return userRepository.save(user);
     }
+    @Transactional
+    public User updateUser(User usr) throws IllegalAccessException {
+        User existingUser = userRepository.findById(usr.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь с id " + usr.getId() + " не найден"));
+
+        existingUser.setUsername(usr.getUsername());
+        existingUser.setPassword(passwordEncoder.encode(usr.getPassword()));
+        Set<Authority> authorities = new HashSet<>(usr.getAuthorities().stream()
+                .map(authority -> (Authority) authority)
+                .collect(Collectors.toSet()));
+        existingUser.setAuthorities(authorities);
+        existingUser.setPersonalData(usr.getPersonalData());
+
+        encryptionService.encrypt(existingUser.getPersonalData());
+        encryptionService.encrypt(existingUser);
+        return userRepository.save(existingUser);
+    }
 
     public User findByUsername(String username) {
         User user = userRepository.findByUsername(username);
@@ -76,6 +89,7 @@ public class UserService implements UserDetailsService {
         if (user != null) {
             try {
                 encryptionService.decrypt(user);
+                encryptionService.decrypt(user.getPersonalData());
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
             }
@@ -84,15 +98,10 @@ public class UserService implements UserDetailsService {
     }
 
 
-
     public Authentication getAuthentication(String token) {
-        // Извлечение имени пользователя из токена
+
         String username = jwtService.getUsernameFromToken(token);
-
-        // Поиск пользователя в базе данных
         UserDetails userDetails = findByUsername(username);
-
-        // Создание объекта Authentication
         return new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
     }
 
@@ -109,9 +118,9 @@ public class UserService implements UserDetailsService {
 
         return users;
     }
-
-    public void deleteById(String id) {
-        userRepository.deleteById(UUID.fromString(id));
+    @Transactional
+    public int deleteById(String id) {
+        return userRepository.setDeleteById(UUID.fromString(id));
     }
 
     @Override

@@ -1,15 +1,12 @@
 package com.baseapi.controller;
 
-import com.baseapi.Models.Request.User.PersonalDataRequest;
-import com.baseapi.Models.Request.User.UserRequest;
 import com.baseapi.controller.base.ApiRequest;
 import com.baseapi.controller.base.ApiResponse;
 import com.baseapi.controller.base.SaveResponse;
-import com.baseapi.entity.User.Authority;
-import com.baseapi.entity.User.PersonalData;
+import com.baseapi.dto.user.UserDto;
 import com.baseapi.entity.User.User;
-import com.baseapi.enums.Role;
 import com.baseapi.services.UserService;
+import com.baseapi.utils.UpdateObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -18,114 +15,123 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import org.modelmapper.ModelMapper;
 
 @RestController
 @RequestMapping("/users")
 public class UserController {
+
+    ModelMapper modelMapper = new ModelMapper();
+    UpdateObject updater = new UpdateObject();
 
     @Autowired
     private UserService userService;
 
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @PostMapping("/save")
-    public ResponseEntity<ApiResponse<SaveResponse>> saveUser(@RequestBody ApiRequest<UserRequest> apiRequest) throws IllegalAccessException {
-        ApiResponse<SaveResponse> response = new ApiResponse<>(); // Изменено на SaveResponse
+    public ResponseEntity<ApiResponse<Object>> saveUser(@RequestBody ApiRequest<UserDto> apiRequest) throws IllegalAccessException {
+        ApiResponse<Object> response = new ApiResponse<>(); // Изменено на SaveResponse
         SaveResponse saveResponse = new SaveResponse();
 
-        UserRequest t_user = apiRequest.getData();
-        User user = new User();
-        if (t_user.getId() != null) {
-            user.setId(UUID.fromString(t_user.getId()));
-        }
-        user.setUsername(t_user.getUsername());
-        user.setPassword(t_user.getPassword());
-        Set<Authority> authorities = t_user.getAuthorities().stream()
-                .map(authority -> new Authority(Role.valueOf(authority.getAuthority()))) // Используем Role.valueOf() для преобразования строки в Role
-                .collect(Collectors.toSet());
-        user.setAuthorities(authorities);
-        PersonalDataRequest t_personalData = t_user.getPersonalData();
-        user.setPersonalData(new PersonalData(t_personalData.getName(), t_personalData.getSurname(), t_personalData.getEmail(), t_personalData.getPhone()));
+        try {
 
-        if (user.getId() != null) {
-            User existingUser = userService.findByUsername(user.getUsername());
-            if (existingUser != null) {
-                // Обновление существующего пользователя
-                existingUser.setUsername(user.getUsername());
-                existingUser.setPassword(user.getPassword());
-                Set<Authority> authorities_new = user.getAuthorities().stream()
-                        .map(authority -> new Authority(Role.valueOf(authority.getAuthority()))) // Используем Role.valueOf() для преобразования строки в Role
-                        .collect(Collectors.toSet());
-                existingUser.setAuthorities(authorities_new);
-                existingUser.setPersonalData(user.getPersonalData());
-                User updatedUser = userService.createUser(existingUser);
+            UserDto t_user = apiRequest.getData();
 
-                saveResponse.setData(updatedUser.getId().toString());
-                saveResponse.setNew(false);
+            User user = modelMapper.map(t_user, User.class);
 
-                response.setData(saveResponse); // Теперь это работает, потому что ApiResponse ожидает SaveResponse
-                response.setSuccess(true);
+            // Обновление существующего пользователя
+            if (user.getId() != null) {
+                User existingUser = userService.findById(user.getId().toString());
+                if (existingUser != null) {
+                    User updated = updater.update(user, existingUser);
+                    User updatedUser = userService.updateUser(updated);
+
+                    saveResponse.updated(updatedUser.getId().toString());
+                    response.success(saveResponse);
+
+                    return ResponseEntity.ok(response);
+                }
+                return ResponseEntity.notFound().build();
+            }
+
+            // Создание нового пользователя
+            if (user.getPassword() != null & user.getPassword() != "") {
+                User newUser = userService.createUser(user);
+
+                saveResponse.created(newUser.getId().toString());
+                response.success(saveResponse);
 
                 return ResponseEntity.ok(response);
             }
+
+            response.error("Password is required");
+            return ResponseEntity.internalServerError().body(response);
+
+        } catch (Exception e) {
+            response.error(e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
         }
-        // Создание нового пользователя
-        User newUser = userService.createUser(user);
 
-        saveResponse.setData(newUser.getId().toString());
-        saveResponse.setNew(false);
-
-        response.setData(saveResponse); // Теперь это работает, потому что ApiResponse ожидает SaveResponse
-        response.setSuccess(true);
-
-        return ResponseEntity.ok(response);
     }
 
 
 
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<User>> getUser(@PathVariable String id) {
-        ApiResponse<User> response = new ApiResponse<>();
-        User user = userService.findById(id);
-        if (user == null) {
-            response.setErrorMessage("User not found");
-            response.setSuccess(false);
+    public ResponseEntity<ApiResponse<Object>> getUser(@PathVariable String id) {
+        ApiResponse<Object> response = new ApiResponse<>();
+        try {
+            User user = userService.findById(id);
+            if (user == null) {
+                return ResponseEntity.notFound().build();
+            }
+            response.success(user);
             return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.error(e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
         }
-        response.setData(user);
-        response.setSuccess(true);
-        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/all")
-    public ResponseEntity<ApiResponse<Page<User>>> getAllUsers(
+    public ResponseEntity<ApiResponse<Object>> getAllUsers(
             @RequestParam(defaultValue = "0") Integer pageNo,
             @RequestParam(defaultValue = "10") Integer pageSize) {
-        ApiResponse<Page<User>> response = new ApiResponse<>();
-        Pageable paging = PageRequest.of(pageNo, pageSize);
-        Page<User> pagedResult = userService.findAll(paging);
-        response.setData(pagedResult);
-        response.setSuccess(true);
-        return ResponseEntity.ok(response);
+        ApiResponse<Object> response = new ApiResponse<>();
+        try {
+            Pageable paging = PageRequest.of(pageNo, pageSize);
+            Page<User> pagedResult = userService.findAll(paging);
+            if (!pagedResult.hasContent()) {
+                response.error("No users found");
+                return ResponseEntity.ok(response);
+            }
+
+            response.success(pagedResult);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.error(e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
     }
 
 
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable String id) {
-        ApiResponse<Void> response = new ApiResponse<>();
-        User user = userService.findById(id);
-        if (user != null) {
-            userService.deleteById(String.valueOf(user.getId()));
-            response.setSuccess(true);
-        } else {
-            response.setErrorMessage("User not found");
-            response.setSuccess(false);
+    public ResponseEntity<ApiResponse<Object>> deleteUser(@PathVariable String id) {
+        ApiResponse<Object> response = new ApiResponse<>();
+        try{
+            User user = userService.findById(id);
+            if (user != null) {
+                int deleted = userService.deleteById(String.valueOf(user.getId()));
+                response.success(deleted);
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            response.error(e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
         }
-        return ResponseEntity.ok(response);
     }
 }
 

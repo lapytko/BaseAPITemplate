@@ -9,6 +9,7 @@ import com.mongodb.client.MongoDatabase;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebFilter;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -22,9 +23,7 @@ import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import java.io.IOException;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.Map;
+import java.util.*;
 
 
 @Order(value = Ordered.HIGHEST_PRECEDENCE)
@@ -48,22 +47,25 @@ public class LoggingFilter extends OncePerRequestFilter {
         ContentCachingResponseWrapper wrappedResponse = new ContentCachingResponseWrapper(response);
 
         String requestBody;
+        String responseBody;
+        String username = "anonymous";
 
-        try {
-            requestBody = new String(wrappedRequest.getBody());
-        }
-        catch (Exception e) {
-            requestBody = "Request body is empty";
-            log.error(e.getMessage());
-        }
-
-
-        filterChain.doFilter(wrappedRequest, wrappedResponse);
+        Document headers = new Document();
+        Document params = new Document();
+        Document requestCookies = new Document();
+        Document responseCookies = new Document();
 
         MongoDatabase database = mongoClient.getDatabase("logs");
         MongoCollection<Document> collection;
 
+        String method = request.getMethod();
         String uri = request.getRequestURI();
+        Enumeration<String> headerNames = request.getHeaderNames();
+        Map<String, String[]> parameterMap = request.getParameterMap();
+        Cookie[] cookies = wrappedRequest.getCookies();
+        String authHeader = request.getHeader("Authorization");
+
+        Document deviceInfo= new Document();
 
         if (uri.contains("swagger")) {
             collection = database.getCollection("swagger");
@@ -73,33 +75,6 @@ public class LoggingFilter extends OncePerRequestFilter {
             collection = database.getCollection("requests");
         }
 
-        String method = request.getMethod();
-        Document headers = new Document();
-        Document params = new Document();
-
-        Enumeration<String> headerNames = request.getHeaderNames();
-        while (headerNames.hasMoreElements()) {
-            String headerName = headerNames.nextElement();
-            headers.append(headerName, request.getHeader(headerName));
-        }
-
-        Map<String, String[]> parameterMap = request.getParameterMap();
-        for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
-            params.append(entry.getKey(), String.join(", ", entry.getValue()));
-        }
-        int status = wrappedResponse.getStatus();  // Получение кода статуса
-        String responseBody;
-
-        try {
-            responseBody = new String(wrappedResponse.getContentAsByteArray());
-            wrappedResponse.copyBodyToResponse();
-        }
-        catch (Exception e) {
-            responseBody = "Response body is empty";
-            log.error(e.getMessage());
-        }
-        String username = "anonymous";
-        String authHeader = request.getHeader("Authorization");
         try {
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
                 String authToken = authHeader.substring(7); // Извлечение токена из заголовка
@@ -111,14 +86,69 @@ public class LoggingFilter extends OncePerRequestFilter {
             username = "anonymous";
         }
 
+        try {
+            requestBody = new String(wrappedRequest.getBody());
+        }
+        catch (Exception e) {
+            requestBody = "Request body is empty";
+            log.error(e.getMessage());
+        }
+
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                requestCookies.append(cookie.getName(), cookie.getValue());
+                if(cookie.getName().equals("device_info")){
+                    byte[] decodedBytes = Base64.getDecoder().decode(cookie.getValue());
+                    deviceInfo.append("decodedDeviceInfo",new String(decodedBytes));
+                }
+
+            }
+        }
+
+        filterChain.doFilter(wrappedRequest, wrappedResponse);
+
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            headers.append(headerName, request.getHeader(headerName));
+        }
+
+        for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
+            params.append(entry.getKey(), String.join(", ", entry.getValue()));
+        }
+        int status = wrappedResponse.getStatus();  // Получение кода статуса
+
+        try {
+            responseBody = new String(wrappedResponse.getContentAsByteArray());
+
+            Collection<String> setCookies = wrappedResponse.getHeaders("Set-Cookie");
+            if (setCookies != null) {
+                for (String cookie : setCookies) {
+                    String[] parts = cookie.split(";", 2);
+                    String[] nameValue = parts[0].split("=", 2);
+                    if (nameValue.length >= 2) {
+                        responseCookies.append(nameValue[0], nameValue[1]);
+                    }
+                }
+            }
+
+            wrappedResponse.copyBodyToResponse();
+        }
+        catch (Exception e) {
+            responseBody = "Response body is empty";
+            log.error(e.getMessage());
+        }
+
         Document log = new Document("uri", uri)
                 .append("method", method)
                 .append("status", status)
                 .append("headers", headers)
                 .append("params", params)
                 .append("requestBody", requestBody)
+                .append("requestCookies", requestCookies)
                 .append("responseBody", responseBody)
+                .append("responseCookies", responseCookies)
                 .append("username", username)
+                .append("deviceInfo", deviceInfo)
                 .append("timestamp", new Date());
 
         collection.insertOne(log);
